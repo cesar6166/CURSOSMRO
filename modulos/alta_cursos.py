@@ -5,6 +5,13 @@ def mostrar():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Encabezado con logos
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.image("img/GREENBRIERLOGO.png", width=200)
+    with col2:
+        st.image("img/LOGO.jpeg", width=200)
+        
     st.header("Alta de Cursos")
     nombre_curso = st.text_input("Nombre del curso:")
     frecuencia_curso = st.selectbox("Frecuencia del curso:", ["anual", "bienal", "trienal", "unico"])

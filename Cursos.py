@@ -21,6 +21,7 @@ import modulos.asignar_curso as asignar_curso
 import modulos.consulta_cursos as consulta_cursos
 import modulos.baja_curso as baja_curso
 import modulos.baja_usuarios as baja_usuario
+import modulos.Bienvenida as bienvenida_usuario
 
 # 🔐 Función de autenticación
 def autenticar_usuario():
@@ -54,32 +55,37 @@ st.sidebar.title("Menú")
 
 if rol == "administrador":
     menu = st.sidebar.selectbox("Selecciona una opción", [
+        "Info",
         "Consulta de Cursos",
         "Alta de Usuarios",
         "Alta de Cursos",
         "Asignar Curso a Usuario",
         "Dar de Baja Curso a Usuario",
         "Dar de Baja a un Usuario"
+        
     ])
 else:
     menu = st.sidebar.selectbox("Selecciona una opción", [
+        "Info",
         "Consulta de Cursos"
     ])
 
 # 🔄 Navegación entre páginas
-if menu == 'Alta de Usuarios':
+if menu == "Info":
+    nombre = st.session_state["usuario"]["nombre"]
+    bienvenida_usuario.mostrar_bienvenida(nombre)
+elif menu == "Consulta de Cursos":
+    consulta_cursos.mostrar()
+elif menu == 'Alta de Usuarios':
     alta_usuarios.mostrar()
 elif menu == 'Alta de Cursos':
     alta_cursos.mostrar()
 elif menu == 'Asignar Curso a Usuario':
     asignar_curso.mostrar()
-elif menu == "Consulta de Cursos":
-    consulta_cursos.mostrar()
 elif menu == "Dar de Baja Curso a Usuario":
     baja_curso.mostrar()
 elif menu == "Dar de Baja a un Usuario":
     baja_usuario.mostrar()
-    
 
 # 🔓 Botón para cerrar sesión
 if st.sidebar.button("Cerrar sesión"):

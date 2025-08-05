@@ -6,6 +6,13 @@ def mostrar():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Encabezado con logos
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.image("img/GREENBRIERLOGO.png", width=200)
+    with col2:
+        st.image("img/LOGO.jpeg", width=200)
+        
     st.header("Asignar Curso a Usuario")
 
     usuarios = cursor.execute("SELECT id_usuario, nombre, ficha FROM usuarios").fetchall()
@@ -21,8 +28,10 @@ def mostrar():
 
         if estado != "Pendiente":
             fecha_realizacion = st.date_input("Fecha de realización del curso:")
+            porcentaje = st.number_input("Porcentaje obtenido:", min_value=0.0, max_value=100.0, step=0.1)
         else:
             fecha_realizacion = None
+            porcentaje = 0.0
 
         if st.button("Asignar Curso"):
             id_usuario = usuarios_dict[usuario_seleccionado]
@@ -42,14 +51,13 @@ def mostrar():
                 if registro_existente:
                     cursor.execute("""
                         UPDATE estado_cursos
-                        SET fecha_realizacion = ?, estado = ?
+                        SET fecha_realizacion = ?, estado = ?, porcentaje = ?
                         WHERE id_estado = ?
-                    """, (fecha_str, estado, registro_existente[0]))
-                    st.success("✅ Curso actualizado para el usuario.")
+                    """, (fecha_str, estado, porcentaje, registro_existente[0]))
                 else:
                     cursor.execute("""
-                        INSERT INTO estado_cursos (id_usuario, id_curso, fecha_realizacion, estado)
-                        VALUES (?, ?, ?, ?)
-                    """, (id_usuario, id_curso, fecha_str, estado))
+                        INSERT INTO estado_cursos (id_usuario, id_curso, fecha_realizacion, estado, porcentaje)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (id_usuario, id_curso, fecha_str, estado, porcentaje))
                     st.success("✅ Curso asignado exitosamente.")
                 conn.commit()

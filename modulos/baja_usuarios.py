@@ -5,6 +5,13 @@ def mostrar():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Encabezado con logos
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.image("img/GREENBRIERLOGO.png", width=200)
+    with col2:
+        st.image("img/LOGO.jpeg", width=200)
+        
     st.header("Dar de Baja a un Usuario")
 
     usuarios = cursor.execute("SELECT id_usuario, nombre, ficha FROM usuarios").fetchall()
@@ -24,5 +31,6 @@ def mostrar():
             cursor.execute("DELETE FROM usuarios WHERE id_usuario = ?", (id_usuario,))
             conn.commit()
             st.success("✅ Usuario eliminado exitosamente.")
+            st.rerun()
     else:
         st.info("No hay usuarios registrados.")
