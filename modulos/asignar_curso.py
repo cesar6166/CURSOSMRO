@@ -2,10 +2,9 @@ import streamlit as st
 from db.conexion import get_connection
 from datetime import datetime
 
-def mostrar():
-    conn = get_connection()
-    cursor = conn.cursor()
+supabase = get_connection()
 
+def mostrar():
     # Encabezado con logos
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -15,16 +14,19 @@ def mostrar():
         
     st.header("Asignar Curso a Usuario")
 
-    usuarios = cursor.execute("SELECT id_usuario, nombre, ficha FROM usuarios").fetchall()
-    cursos = cursor.execute("SELECT id_curso, nombre FROM cursos").fetchall()
+    usuarios_resp = supabase.table("usuarios").select("id_usuario, nombre, ficha").execute()
+    cursos_resp = supabase.table("cursos").select("id_curso, nombre").execute()
+
+    usuarios = usuarios_resp.data
+    cursos = cursos_resp.data
 
     if usuarios and cursos:
-        usuarios_dict = {f"{u[1]} (Ficha: {u[2]})": u[0] for u in usuarios}
-        cursos_dict = {c[1]: c[0] for c in cursos}
+        usuarios_dict = {f"{u['nombre']} (Ficha: {u['ficha']})": u['id_usuario'] for u in usuarios}
+        cursos_dict = {c['nombre']: c['id_curso'] for c in cursos}
 
         usuario_seleccionado = st.selectbox("Selecciona un usuario:", list(usuarios_dict.keys()))
         curso_seleccionado = st.selectbox("Selecciona un curso:", list(cursos_dict.keys()))
-        estado = st.selectbox("Estado del curso:", ["Pendiente", "realizado", "aprobado", "reprobado"])
+        estado = st.selectbox("Estado del curso:", ["aprobado", "reprobado"])
 
         if estado != "Pendiente":
             fecha_realizacion = st.date_input("Fecha de realización del curso:")
@@ -37,11 +39,9 @@ def mostrar():
             id_usuario = usuarios_dict[usuario_seleccionado]
             id_curso = cursos_dict[curso_seleccionado]
 
-            cursor.execute("""
-                SELECT id_estado FROM estado_cursos
-                WHERE id_usuario = ? AND id_curso = ?
-            """, (id_usuario, id_curso))
-            registro_existente = cursor.fetchone()
+            # Verificar si ya existe el registro
+            registro_resp = supabase.table("estado_cursos").select("id_estado").eq("id_usuario", id_usuario).eq("id_curso", id_curso).execute()
+            registro_existente = registro_resp.data[0] if registro_resp.data else None
 
             if estado != "Pendiente" and fecha_realizacion > datetime.today().date():
                 st.error("⚠️ La fecha de realización no puede ser futura.")
@@ -49,15 +49,18 @@ def mostrar():
                 fecha_str = fecha_realizacion.strftime("%Y-%m-%d") if fecha_realizacion else "2000-01-01"
 
                 if registro_existente:
-                    cursor.execute("""
-                        UPDATE estado_cursos
-                        SET fecha_realizacion = ?, estado = ?, porcentaje = ?
-                        WHERE id_estado = ?
-                    """, (fecha_str, estado, porcentaje, registro_existente[0]))
+                    supabase.table("estado_cursos").update({
+                        "fecha_realizacion": fecha_str,
+                        "estado": estado,
+                        "porcentaje": porcentaje
+                    }).eq("id_estado", registro_existente["id_estado"]).execute()
+                    st.success("✅ Curso actualizado exitosamente.")
                 else:
-                    cursor.execute("""
-                        INSERT INTO estado_cursos (id_usuario, id_curso, fecha_realizacion, estado, porcentaje)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (id_usuario, id_curso, fecha_str, estado, porcentaje))
+                    supabase.table("estado_cursos").insert({
+                        "id_usuario": id_usuario,
+                        "id_curso": id_curso,
+                        "fecha_realizacion": fecha_str,
+                        "estado": estado,
+                        "porcentaje": porcentaje
+                    }).execute()
                     st.success("✅ Curso asignado exitosamente.")
-                conn.commit()

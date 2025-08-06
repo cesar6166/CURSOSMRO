@@ -3,10 +3,10 @@ import pandas as pd
 from datetime import datetime, date
 from db.conexion import get_connection
 from utils.helpers import calcular_vencimiento
-def mostrar():
-    conn = get_connection()
-    cursor = conn.cursor()
 
+supabase = get_connection()
+
+def mostrar():
     # Encabezado con logos
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -16,12 +16,10 @@ def mostrar():
 
     st.header("Consulta de Cursos por Ficha")
 
-    # Obtener datos del usuario autenticado
     usuario_actual = st.session_state.get("usuario", {})
     ficha_actual = usuario_actual.get("ficha")
     rol_actual = usuario_actual.get("rol")
 
-    # Si es administrador, puede ingresar cualquier ficha
     if rol_actual == "administrador":
         ficha_consulta = st.text_input("Ingrese el número de ficha a consultar:")
     else:
@@ -29,43 +27,42 @@ def mostrar():
         st.info(f"🔒 Consultando cursos para tu ficha: **{ficha_consulta}**")
 
     if ficha_consulta:
-        cursor.execute("SELECT id_usuario, nombre FROM usuarios WHERE ficha = ?", (ficha_consulta,))
-        usuario = cursor.fetchone()
-
-        if usuario:
-            id_usuario, nombre = usuario
+        usuario_resp = supabase.table("usuarios").select("id_usuario, nombre").eq("ficha", ficha_consulta).execute()
+        if usuario_resp.data:
+            usuario = usuario_resp.data[0]
+            id_usuario = usuario["id_usuario"]
+            nombre = usuario["nombre"]
             st.subheader(f"Cursos del usuario: {nombre}")
 
-            # Calcular promedio de porcentaje
-            cursor.execute("""
-                SELECT AVG(porcentaje)
-                FROM estado_cursos
-                WHERE id_usuario = ? AND estado IN ('realizado', 'aprobado', 'reprobado')
-            """, (id_usuario,))
-            promedio = cursor.fetchone()[0]
-
-            if promedio is not None:
+            promedio_resp = supabase.table("estado_cursos").select("porcentaje, estado").eq("id_usuario", id_usuario).execute()
+            porcentajes = [r["porcentaje"] for r in promedio_resp.data if r["estado"] in ["realizado", "aprobado", "reprobado"]]
+            if porcentajes:
+                promedio = sum(porcentajes) / len(porcentajes)
                 st.metric("📊 Promedio de cursos realizados", f"{promedio:.2f}%")
             else:
                 st.info("Este usuario aún no tiene cursos con porcentaje registrado.")
 
-            query = """
-            SELECT c.nombre, c.frecuencia, c.modalidad, e.fecha_realizacion, e.estado, e.porcentaje
-            FROM estado_cursos e
-            JOIN cursos c ON e.id_curso = c.id_curso
-            WHERE e.id_usuario = ?
-            """
-            df = pd.read_sql_query(query, conn, params=(id_usuario,))
+            cursos_resp = supabase.table("estado_cursos").select("id_curso, fecha_realizacion, estado, porcentaje").eq("id_usuario", id_usuario).execute()
+            cursos_data = cursos_resp.data
 
-            if not df.empty:
+            if cursos_data:
+                df = pd.DataFrame(cursos_data)
+                curso_info = supabase.table("cursos").select("id_curso, nombre, frecuencia, modulo").execute().data
+                curso_dict = {c["id_curso"]: c for c in curso_info}
+
                 hoy = datetime.today()
                 vencimientos = []
                 estados_actualizados = []
                 dias_restantes = []
 
-                for _, row in df.iterrows():
-                    fecha_realizacion = datetime.strptime(row['fecha_realizacion'], "%Y-%m-%d")
-                    vencimiento = calcular_vencimiento(fecha_realizacion, row['frecuencia'])
+                for i, row in df.iterrows():
+                    curso = curso_dict.get(row["id_curso"], {})
+                    df.at[i, "nombre"] = curso.get("nombre", "Desconocido")
+                    df.at[i, "frecuencia"] = curso.get("frecuencia", "N/A")
+                    df.at[i, "modulo"] = curso.get("modulo", "N/A")
+
+                    fecha_realizacion = datetime.strptime(row["fecha_realizacion"], "%Y-%m-%d")
+                    vencimiento = calcular_vencimiento(fecha_realizacion, curso.get("frecuencia"))
 
                     if vencimiento:
                         vencimientos.append(vencimiento.date())
@@ -77,19 +74,19 @@ def mostrar():
                         elif dias <= 30:
                             estados_actualizados.append("por vencer")
                         else:
-                            estados_actualizados.append(row['estado'])
+                            estados_actualizados.append(row["estado"])
                     else:
                         vencimientos.append("No vence")
                         dias_restantes.append("N/A")
-                        estados_actualizados.append(row['estado'])
+                        estados_actualizados.append(row["estado"])
 
-                df['fecha_vencimiento'] = pd.to_datetime([
+                df["fecha_vencimiento"] = pd.to_datetime([
                     v if isinstance(v, (datetime, date)) else pd.NaT for v in vencimientos
                 ])
-                df['días_restantes'] = dias_restantes
-                df['estado_actualizado'] = estados_actualizados
-                df = df.sort_values(by='fecha_vencimiento', ascending=True, na_position='last')
-                df['fecha_vencimiento'] = [v if not pd.isna(v) else "No vence" for v in df['fecha_vencimiento']]
+                df["días_restantes"] = dias_restantes
+                df["estado_actualizado"] = estados_actualizados
+                df = df.sort_values(by="fecha_vencimiento", ascending=True, na_position="last")
+                df["fecha_vencimiento"] = [v if not pd.isna(v) else "No vence" for v in df["fecha_vencimiento"]]
 
                 st.dataframe(df)
 
@@ -107,28 +104,27 @@ def mostrar():
         else:
             st.warning("Ficha no encontrada. Verifique el número ingresado.")
 
-    # Sección adicional solo para administradores
     if rol_actual == "administrador":
         st.subheader("🔍 Usuarios con curso pendiente")
 
-        cursos_disponibles = cursor.execute("SELECT id_curso, nombre FROM cursos").fetchall()
-        cursos_dict = {c[1]: c[0] for c in cursos_disponibles}
+        cursos_resp = supabase.table("cursos").select("id_curso, nombre").execute()
+        cursos_dict = {c["nombre"]: c["id_curso"] for c in cursos_resp.data}
 
         curso_seleccionado = st.selectbox("Selecciona un curso:", list(cursos_dict.keys()))
 
         if curso_seleccionado:
             id_curso = cursos_dict[curso_seleccionado]
+            pendientes_resp = supabase.table("estado_cursos").select("id_usuario, estado, fecha_realizacion, porcentaje").eq("id_curso", id_curso).neq("estado", "aprobado").execute()
+            pendientes_data = pendientes_resp.data
 
-            query_pendientes = """
-            SELECT u.nombre, u.ficha, e.estado, e.fecha_realizacion, e.porcentaje
-            FROM estado_cursos e
-            JOIN usuarios u ON e.id_usuario = u.id_usuario
-            WHERE e.id_curso = ? AND e.estado != 'aprobado'
-            """
-            df_pendientes = pd.read_sql_query(query_pendientes, conn, params=(id_curso,))
+            if pendientes_data:
+                usuarios_info = supabase.table("usuarios").select("id_usuario, nombre, ficha").execute().data
+                usuarios_dict = {u["id_usuario"]: u for u in usuarios_info}
 
-            if not df_pendientes.empty:
-                st.dataframe(df_pendientes)
+                df_pendientes = pd.DataFrame(pendientes_data)
+                df_pendientes["nombre"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("nombre", ""))
+                df_pendientes["ficha"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("ficha", ""))
+
+                st.dataframe(df_pendientes[["nombre", "ficha", "estado", "fecha_realizacion", "porcentaje"]])
             else:
                 st.info("✅ Todos los usuarios han aprobado este curso.")
-

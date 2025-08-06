@@ -1,9 +1,8 @@
 import streamlit as st
-import sqlite3
-import pandas as pd
 from datetime import datetime, timedelta, date
+import pandas as pd
 
-# ✅ Configuración de la página (debe ir primero)
+# ✅ Configuración de la página
 st.set_page_config(
     page_title="Gestión de Cursos",
     page_icon="📚",
@@ -11,8 +10,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 📦 Importamos la conexión a la base de datos
-from db.conexion import get_connection, crear_tablas
+# 📦 Conexión a Supabase
+from db.conexion import get_connection
+supabase = get_connection()
 
 # 📄 Importamos las páginas
 import modulos.alta_usuario as alta_usuarios
@@ -28,12 +28,10 @@ def autenticar_usuario():
     st.title("🔐 Inicio de Sesión")
     ficha = st.text_input("Ingrese su número de ficha:")
     if st.button("Ingresar"):
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT nombre, rol FROM usuarios WHERE ficha = ?", (ficha,))
-        resultado = cursor.fetchone()
-        if resultado:
-            nombre, rol = resultado
+        response = supabase.table("usuarios").select("nombre, rol").eq("ficha", ficha).execute()
+        if response.data:
+            nombre = response.data[0]["nombre"]
+            rol = response.data[0]["rol"]
             st.session_state["usuario"] = {"nombre": nombre, "ficha": ficha, "rol": rol}
             st.success(f"Bienvenido, {nombre} ({rol})")
             st.rerun()
@@ -44,10 +42,6 @@ def autenticar_usuario():
 if "usuario" not in st.session_state:
     autenticar_usuario()
     st.stop()
-
-# 🗃️ Inicializar base de datos
-conn = get_connection()
-crear_tablas(conn)
 
 # 🧭 Menú lateral según rol
 rol = st.session_state["usuario"]["rol"]
@@ -62,7 +56,6 @@ if rol == "administrador":
         "Asignar Curso a Usuario",
         "Dar de Baja Curso a Usuario",
         "Dar de Baja a un Usuario"
-        
     ])
 else:
     menu = st.sidebar.selectbox("Selecciona una opción", [

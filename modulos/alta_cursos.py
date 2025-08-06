@@ -1,10 +1,9 @@
 import streamlit as st
 from db.conexion import get_connection
 
-def mostrar():
-    conn = get_connection()
-    cursor = conn.cursor()
+supabase = get_connection()
 
+def mostrar():
     # Encabezado con logos
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -19,11 +18,12 @@ def mostrar():
 
     if st.button("Registrar Curso"):
         if nombre_curso and frecuencia_curso and modalidad_curso:
-            cursor.execute(
-                "INSERT INTO cursos (nombre, frecuencia, modalidad) VALUES (?, ?, ?)",
-                (nombre_curso, frecuencia_curso, modalidad_curso)
-            )
-            conn.commit()
+            data = {
+                "nombre": nombre_curso,
+                "frecuencia": frecuencia_curso,
+                "modulo": modalidad_curso
+            }
+            supabase.table("cursos").insert(data).execute()
             st.success("✅ Curso registrado exitosamente.")
         else:
             st.warning("Por favor, completa todos los campos.")
@@ -31,9 +31,11 @@ def mostrar():
     st.divider()
 
     st.header("Modificar Curso Existente")
-    cursos = cursor.execute("SELECT id_curso, nombre FROM cursos").fetchall()
+    response = supabase.table("cursos").select("id_curso, nombre").execute()
+    cursos = response.data
+
     if cursos:
-        cursos_dict = {f"{c[1]} (ID: {c[0]})": c[0] for c in cursos}
+        cursos_dict = {f"{c['nombre']} (ID: {c['id_curso']})": c['id_curso'] for c in cursos}
         curso_seleccionado = st.selectbox("Selecciona un curso para modificar:", list(cursos_dict.keys()))
         id_curso = cursos_dict[curso_seleccionado]
 
@@ -43,12 +45,12 @@ def mostrar():
 
         if st.button("Guardar cambios"):
             if nuevo_nombre and nueva_frecuencia and nueva_modalidad:
-                cursor.execute("""
-                    UPDATE cursos
-                    SET nombre = ?, frecuencia = ?, modalidad = ?
-                    WHERE id_curso = ?
-                """, (nuevo_nombre, nueva_frecuencia, nueva_modalidad, id_curso))
-                conn.commit()
+                update_data = {
+                    "nombre": nuevo_nombre,
+                    "frecuencia": nueva_frecuencia,
+                    "modulo": nueva_modalidad
+                }
+                supabase.table("cursos").update(update_data).eq("id_curso", id_curso).execute()
                 st.success("✅ Curso modificado exitosamente.")
             else:
                 st.warning("Por favor, completa todos los campos.")
