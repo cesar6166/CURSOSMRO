@@ -42,7 +42,7 @@ def mostrar():
             else:
                 st.info("Este usuario aún no tiene cursos con porcentaje registrado.")
 
-            cursos_resp = supabase.table("estado_cursos").select("id_curso,estado, porcentaje").eq("id_usuario", id_usuario).execute()
+            cursos_resp = supabase.table("estado_cursos").select("id_curso, fecha_realizacion, estado, porcentaje").eq("id_usuario", id_usuario).execute()
             cursos_data = cursos_resp.data
 
             if cursos_data:
@@ -137,4 +137,5 @@ def mostrar():
 
             else:
                 st.info("✅ Todos los usuarios han aprobado este curso.")
+
 
