@@ -61,8 +61,13 @@ def mostrar():
                     df.at[i, "frecuencia"] = curso.get("frecuencia", "N/A")
                     df.at[i, "modulo"] = curso.get("modulo", "N/A")
 
-                    fecha_realizacion = datetime.strptime(row["fecha_realizacion"], "%Y-%m-%d")
-                    vencimiento = calcular_vencimiento(fecha_realizacion, curso.get("frecuencia"))
+                    fecha_raw = row.get("fecha_realizacion")
+                    if fecha_raw:
+                        fecha_realizacion = datetime.strptime(fecha_raw, "%Y-%m-%d")
+                        vencimiento = calcular_vencimiento(fecha_realizacion, curso.get("frecuencia"))
+                    else:
+                        fecha_realizacion = None
+                        vencimiento = None
 
                     if vencimiento:
                         vencimientos.append(vencimiento.date())
@@ -116,7 +121,6 @@ def mostrar():
             id_curso = cursos_dict[curso_seleccionado]
             pendientes_resp = supabase.table("estado_cursos").select("id_usuario, estado, fecha_realizacion, porcentaje").eq("id_curso", id_curso).neq("estado", "aprobado").execute()
             pendientes_data = pendientes_resp.data
-
             if pendientes_data:
                 usuarios_info = supabase.table("usuarios").select("id_usuario, nombre, ficha").execute().data
                 usuarios_dict = {u["id_usuario"]: u for u in usuarios_info}
@@ -125,6 +129,11 @@ def mostrar():
                 df_pendientes["nombre"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("nombre", ""))
                 df_pendientes["ficha"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("ficha", ""))
 
+                # Formatear fecha_realizacion solo si existe
+                df_pendientes["fecha_realizacion"] = df_pendientes["fecha_realizacion"].apply(
+                    lambda f: f if f else "—"
+                )
                 st.dataframe(df_pendientes[["nombre", "ficha", "estado", "fecha_realizacion", "porcentaje"]])
+
             else:
                 st.info("✅ Todos los usuarios han aprobado este curso.")
