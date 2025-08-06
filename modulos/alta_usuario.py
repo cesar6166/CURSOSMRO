@@ -1,5 +1,6 @@
 import streamlit as st
 from db.conexion import get_connection
+
 supabase = get_connection()
 
 def mostrar():
@@ -17,18 +18,21 @@ def mostrar():
 
     if st.button("Registrar Usuario"):
         if nombre_usuario and ficha_usuario and rol_usuario:
-            # Verificar si la ficha ya existe
-            existe = supabase.table("usuarios").select("id_usuario").eq("ficha", ficha_usuario).execute()
-            if existe.data:
-                st.error("⚠️ La ficha ya está registrada.")
-            else:
-                # Insertar nuevo usuario sin especificar el ID
-                data = {
-                    "nombre": nombre_usuario,
-                    "ficha": ficha_usuario,
-                    "rol": rol_usuario
-                }
-                supabase.table("usuarios").insert(data).execute()
-                st.success("✅ Usuario registrado exitosamente.")
+            try:
+                # Verificar si la ficha ya existe
+                existe = supabase.table("usuarios").select("id_usuario").eq("ficha", ficha_usuario).execute()
+                if existe.data:
+                    st.error("⚠️ La ficha ya está registrada.")
+                else:
+                    # Insertar nuevo usuario sin especificar el ID
+                    data = {
+                        "nombre": nombre_usuario,
+                        "ficha": ficha_usuario,
+                        "rol": rol_usuario
+                    }
+                    supabase.table("usuarios").insert(data).execute()
+                    st.success("✅ Usuario registrado exitosamente.")
+            except Exception as e:
+                st.error(f"❌ Error al registrar usuario: {e}")
         else:
             st.warning("Por favor, completa todos los campos.")
