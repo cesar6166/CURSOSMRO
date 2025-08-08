@@ -22,6 +22,9 @@ import modulos.consulta_cursos as consulta_cursos
 import modulos.baja_curso as baja_curso
 import modulos.baja_usuarios as baja_usuario
 import modulos.Bienvenida as bienvenida_usuario
+from modulos.usuarios_pendientes import mostrar_usuarios_pendientes
+from modulos.revisar_solicitudes import mostrar_solicitudes
+
 
 # 🔐 Función de autenticación
 def autenticar_usuario():
@@ -55,7 +58,10 @@ if rol == "administrador":
         "Alta de Cursos",
         "Asignar Curso a Usuario",
         "Dar de Baja Curso a Usuario",
-        "Dar de Baja a un Usuario"
+        "Dar de Baja a un Usuario",
+        "Usuarios pendientes",
+        "Revisar Solicitudes"
+
     ])
 else:
     menu = st.sidebar.selectbox("Selecciona una opción", [
@@ -79,6 +85,11 @@ elif menu == "Dar de Baja Curso a Usuario":
     baja_curso.mostrar()
 elif menu == "Dar de Baja a un Usuario":
     baja_usuario.mostrar()
+elif menu == "Usuarios pendientes":
+    mostrar_usuarios_pendientes()
+elif menu == "Revisar Solicitudes":
+    mostrar_solicitudes()
+
 
 # 🔓 Botón para cerrar sesión
 if st.sidebar.button("Cerrar sesión"):

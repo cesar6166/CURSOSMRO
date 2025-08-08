@@ -95,11 +95,51 @@ def mostrar():
 
                 st.dataframe(df)
 
-                if st.button("📁 Exportar a Excel"):
+                # 🔍 Cursos Reprobados
+                st.subheader("📉 Cursos Reprobados")
+                df_reprobados = df[df["estado"] == "reprobado"]
+                if not df_reprobados.empty:
+                    for i, row in df_reprobados.iterrows():
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.markdown(f"""
+                                **Curso:** {row['nombre']}  
+                                **Módulo:** {row['modulo']}  
+                                **Porcentaje:** {row['porcentaje']}%  
+                                **Fecha:** {row['fecha_realizacion']}
+                            """)
+                        with col2:
+                            boton_id = f"solicitar_{row['id_curso']}_{i}"
+                            if st.button("Solicitar aprobación", key=boton_id):
+                                solicitud_existente = supabase.table("solicitudes_aprobacion").select("id_solicitud").eq("id_usuario", id_usuario).eq("id_curso", row["id_curso"]).eq("estado_solicitud", "pendiente").execute()
+                                if solicitud_existente.data:
+                                    st.warning("Ya existe una solicitud pendiente para este curso.")
+                                else:
+                                    supabase.table("solicitudes_aprobacion").insert({
+                                        "id_usuario": id_usuario,
+                                        "id_curso": row["id_curso"],
+                                        "estado_solicitud": "pendiente",
+                                        "fecha_solicitud": date.today().isoformat()
+                                    }).execute()
+                                    st.success("Solicitud enviada correctamente.")
+
+                    if st.button("📁 Exportar cursos reprobados a Excel"):
+                        df_reprobados.to_excel("reprobados.xlsx", index=False)
+                        with open("reprobados.xlsx", "rb") as f:
+                            st.download_button(
+                                label="Descargar cursos reprobados",
+                                data=f,
+                                file_name="reprobados.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                else:
+                    st.info("✅ No hay cursos reprobados para este usuario.")
+
+                if st.button("📁 Exportar todos los cursos a Excel"):
                     df.to_excel("reporte_cursos.xlsx", index=False)
                     with open("reporte_cursos.xlsx", "rb") as f:
                         st.download_button(
-                            label="Descargar archivo Excel",
+                            label="Descargar todos los cursos",
                             data=f,
                             file_name="reporte_cursos.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -108,34 +148,3 @@ def mostrar():
                 st.info("No se encontraron cursos registrados para este usuario.")
         else:
             st.warning("Ficha no encontrada. Verifique el número ingresado.")
-
-    if rol_actual == "administrador":
-        st.subheader("🔍 Usuarios con curso pendiente")
-
-        cursos_resp = supabase.table("cursos").select("id_curso, nombre").execute()
-        cursos_dict = {c["nombre"]: c["id_curso"] for c in cursos_resp.data}
-
-        curso_seleccionado = st.selectbox("Selecciona un curso:", list(cursos_dict.keys()))
-
-        if curso_seleccionado:
-            id_curso = cursos_dict[curso_seleccionado]
-            pendientes_resp = supabase.table("estado_cursos").select("id_usuario, estado, fecha_realizacion, porcentaje").eq("id_curso", id_curso).neq("estado", "aprobado").execute()
-            pendientes_data = pendientes_resp.data
-            if pendientes_data:
-                usuarios_info = supabase.table("usuarios").select("id_usuario, nombre, ficha").execute().data
-                usuarios_dict = {u["id_usuario"]: u for u in usuarios_info}
-
-                df_pendientes = pd.DataFrame(pendientes_data)
-                df_pendientes["nombre"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("nombre", ""))
-                df_pendientes["ficha"] = df_pendientes["id_usuario"].apply(lambda uid: usuarios_dict.get(uid, {}).get("ficha", ""))
-
-                # Formatear fecha_realizacion solo si existe
-                df_pendientes["fecha_realizacion"] = df_pendientes["fecha_realizacion"].apply(
-                    lambda f: f if f else "—"
-                )
-                st.dataframe(df_pendientes[["nombre", "ficha", "estado", "fecha_realizacion", "porcentaje"]])
-
-            else:
-                st.info("✅ Todos los usuarios han aprobado este curso.")
-
-
