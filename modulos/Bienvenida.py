@@ -17,7 +17,8 @@ def mostrar_bienvenida(nombre):
     - Los cambios pueden tardar en actualizarse.
 
     ---
-    **Desarrollado por el:** *El Equipo de MRO y el Ing. Cesar Nuñez*  
-    **Versión:** Prueba  
-    **Fecha:** Agosto 2025
+    **Versión:** Prueba 
+    **Fecha:** 8/Agosto/2025
+    **Desarrollado por el:** *El practicante de control de producion Ing.Cesar Armando Nuñez Alonso*  
     """)
+
