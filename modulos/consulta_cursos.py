@@ -75,7 +75,20 @@ def mostrar():
                         dias_restantes.append(dias)
 
                         if dias < 0:
-                            estados_actualizados.append("pendiente")
+                            # Si el curso ya fue realizado y está vencido, se considera reprobado
+                            if row["estado"] in ["aprobado", "realizado"]:
+                                estados_actualizados.append("reprobado")
+
+                                # Actualizar estado en Supabase si no está ya como reprobado
+                                if row["estado"] != "reprobado":
+                                    try:
+                                        supabase.table("estado_cursos").update({
+                                            "estado": "reprobado"
+                                        }).eq("id_usuario", id_usuario).eq("id_curso", row["id_curso"]).execute()
+                                    except Exception as e:
+                                        st.error(f"Error al actualizar estado en Supabase: {e}")
+                            else:
+                                estados_actualizados.append("pendiente")
                         elif dias <= 30:
                             estados_actualizados.append("por vencer")
                         else:
