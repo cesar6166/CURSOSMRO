@@ -16,9 +16,8 @@ def mostrar_bienvenida(nombre):
     - Usa el menú lateral para navegar entre los módulos.
     - Los cambios pueden tardar en actualizarse.
 
-    ---
-    **Versión:** Prueba 
-    **Fecha:** 8/Agosto/2025
-    **Desarrollado por el:** *El practicante de control de producion Ing.Cesar Armando Nuñez Alonso*  
+ ---
+    **Desarrollado por el:** *Practicante de control de produccion Ing.Cesar Armando Nuñez Alonso*  
+    **Versión:** Prueba  
+    **Fecha:** 8 Agosto 2025
     """)
-
