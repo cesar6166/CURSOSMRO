@@ -25,7 +25,6 @@ import modulos.Bienvenida as bienvenida_usuario
 from modulos.usuarios_pendientes import mostrar_usuarios_pendientes
 from modulos.revisar_solicitudes import mostrar_solicitudes
 
-
 # 🔐 Función de autenticación
 def autenticar_usuario():
     st.title("🔐 Inicio de Sesión")
@@ -46,52 +45,67 @@ if "usuario" not in st.session_state:
     autenticar_usuario()
     st.stop()
 
-# 🧭 Menú lateral según rol
-rol = st.session_state["usuario"]["rol"]
-st.sidebar.title("Menú")
+# 🧭 Menú lateral
+usuario = st.session_state["usuario"]
+rol = usuario["rol"]
 
+st.sidebar.title("📚 Gestión de Cursos")
+st.sidebar.markdown(f"""
+**👤 Usuario:** {usuario['nombre']}  
+**🆔 Ficha:** {usuario['ficha']}  
+**🔐 Rol:** {rol}
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧭 Navegación")
+
+# 📋 Opciones agrupadas por categoría con descripciones
+opciones_descripciones = {
+    "🏠 Inicio": "Página principal con bienvenida.",
+    "👤 Usuarios | Alta de Usuarios": "Registrar nuevos usuarios en el sistema.",
+    "👤 Usuarios | Dar de Baja a un Usuario": "Eliminar usuarios existentes.",
+    "📘 Cursos | Alta de Cursos": "Registrar nuevos cursos disponibles.",
+    "📘 Cursos | Asignar Curso a Usuario": "Asignar cursos a usuarios registrados.",
+    "📘 Cursos | Dar de Baja Curso a Usuario": "Eliminar asignaciones de cursos.",
+    "📘 Cursos | Consulta de Cursos": "Ver cursos asignados y disponibles.",
+    "🛠️ Administración | Usuarios pendientes": "Revisar usuarios que aún no han sido aprobados.",
+    "🛠️ Administración | Revisar Solicitudes": "Ver y gestionar solicitudes de cursos."
+}
+
+# Filtrar opciones según el rol
 if rol == "administrador":
-    menu = st.sidebar.selectbox("Selecciona una opción", [
-        "Info",
-        "Consulta de Cursos",
-        "Alta de Usuarios",
-        "Alta de Cursos",
-        "Asignar Curso a Usuario",
-        "Dar de Baja Curso a Usuario",
-        "Dar de Baja a un Usuario",
-        "Usuarios pendientes",
-        "Revisar Solicitudes"
-
-    ])
+    opciones = list(opciones_descripciones.keys())
 else:
-    menu = st.sidebar.selectbox("Selecciona una opción", [
-        "Info",
-        "Consulta de Cursos"
-    ])
+    opciones = ["🏠 Inicio", "📘 Cursos | Consulta de Cursos"]
 
-# 🔄 Navegación entre páginas
-if menu == "Info":
-    nombre = st.session_state["usuario"]["nombre"]
-    bienvenida_usuario.mostrar_bienvenida(nombre)
-elif menu == "Consulta de Cursos":
-    consulta_cursos.mostrar()
-elif menu == 'Alta de Usuarios':
-    alta_usuarios.mostrar()
-elif menu == 'Alta de Cursos':
-    alta_cursos.mostrar()
-elif menu == 'Asignar Curso a Usuario':
-    asignar_curso.mostrar()
-elif menu == "Dar de Baja Curso a Usuario":
-    baja_curso.mostrar()
-elif menu == "Dar de Baja a un Usuario":
-    baja_usuario.mostrar()
-elif menu == "Usuarios pendientes":
-    mostrar_usuarios_pendientes()
-elif menu == "Revisar Solicitudes":
-    mostrar_solicitudes()
+# 🎯 Navegación principal
+opcion_seleccionada = st.sidebar.radio("Selecciona una opción", opciones)
 
+# ℹ️ Mostrar descripción dinámica
+st.sidebar.caption(f"ℹ️ {opciones_descripciones.get(opcion_seleccionada, '')}")
 
 # 🔓 Botón para cerrar sesión
-if st.sidebar.button("Cerrar sesión"):
+st.sidebar.markdown("---")
+if st.sidebar.button("🔒 Cerrar sesión"):
     st.session_state.clear()
     st.rerun()
+
+# 🧭 Mostrar módulo correspondiente
+if opcion_seleccionada == "🏠 Inicio":
+    bienvenida_usuario.mostrar_bienvenida(usuario["nombre"])
+elif "Alta de Usuarios" in opcion_seleccionada:
+    alta_usuarios.mostrar()
+elif "Dar de Baja a un Usuario" in opcion_seleccionada:
+    baja_usuario.mostrar()
+elif "Alta de Cursos" in opcion_seleccionada:
+    alta_cursos.mostrar()
+elif "Asignar Curso a Usuario" in opcion_seleccionada:
+    asignar_curso.mostrar()
+elif "Dar de Baja Curso a Usuario" in opcion_seleccionada:
+    baja_curso.mostrar()
+elif "Consulta de Cursos" in opcion_seleccionada:
+    consulta_cursos.mostrar()
+elif "Usuarios pendientes" in opcion_seleccionada:
+    mostrar_usuarios_pendientes()
+elif "Revisar Solicitudes" in opcion_seleccionada:
+    mostrar_solicitudes()

@@ -34,14 +34,6 @@ def mostrar():
             nombre = usuario["nombre"]
             st.subheader(f"Cursos del usuario: {nombre}")
 
-            promedio_resp = supabase.table("estado_cursos").select("porcentaje, estado").eq("id_usuario", id_usuario).execute()
-            porcentajes = [r["porcentaje"] for r in promedio_resp.data if r["estado"] in ["realizado", "aprobado", "reprobado"]]
-            if porcentajes:
-                promedio = sum(porcentajes) / len(porcentajes)
-                st.metric("📊 Promedio de cursos realizados", f"{promedio:.2f}%")
-            else:
-                st.info("Este usuario aún no tiene cursos con porcentaje registrado.")
-
             cursos_resp = supabase.table("estado_cursos").select("id_curso, fecha_realizacion, estado, porcentaje").eq("id_usuario", id_usuario).execute()
             cursos_data = cursos_resp.data
 
@@ -75,28 +67,69 @@ def mostrar():
                         dias_restantes.append(dias)
 
                         if dias < 0:
-                            # Si el curso ya fue realizado y está vencido, se considera reprobado
                             if row["estado"] in ["aprobado", "realizado"]:
-                                estados_actualizados.append("reprobado")
-
-                                # Actualizar estado en Supabase si no está ya como reprobado
-                                if row["estado"] != "reprobado":
-                                    try:
-                                        supabase.table("estado_cursos").update({
-                                            "estado": "reprobado"
-                                        }).eq("id_usuario", id_usuario).eq("id_curso", row["id_curso"]).execute()
-                                    except Exception as e:
-                                        st.error(f"Error al actualizar estado en Supabase: {e}")
+                                estado_nuevo = "reprobado"
                             else:
-                                estados_actualizados.append("pendiente")
+                                estado_nuevo = "pendiente"
                         elif dias <= 30:
-                            estados_actualizados.append("por vencer")
+                            estado_nuevo = "por vencer"
                         else:
-                            estados_actualizados.append(row["estado"])
+                            estado_nuevo = row["estado"]
                     else:
                         vencimientos.append("No vence")
                         dias_restantes.append("N/A")
-                        estados_actualizados.append(row["estado"])
+                        estado_nuevo = row["estado"]
+
+                    if estado_nuevo == "aprobado":
+                        porcentaje_nuevo = 100
+                    elif estado_nuevo == "reprobado":
+                        porcentaje_nuevo = 0
+                    else:
+                        porcentaje_nuevo = row["porcentaje"]
+
+                    estados_actualizados.append(estado_nuevo)
+                    df.at[i, "porcentaje"] = porcentaje_nuevo
+
+                    if estado_nuevo != row["estado"] or porcentaje_nuevo != row["porcentaje"]:
+                        try:
+                            supabase.table("estado_cursos").update({
+                                "estado": estado_nuevo,
+                                "porcentaje": porcentaje_nuevo
+                            }).eq("id_usuario", id_usuario).eq("id_curso", row["id_curso"]).execute()
+                        except Exception as e:
+                            st.error(f"Error al actualizar estado/porcentaje en Supabase: {e}")
+
+                porcentajes_actualizados = df[df["estado"].isin(["realizado", "aprobado", "reprobado"])]["porcentaje"]
+                if not porcentajes_actualizados.empty:
+                    promedio_usuario = porcentajes_actualizados.mean()
+                    st.metric("📊 Promedio de cursos realizados", f"{promedio_usuario:.2f}%")
+                else:
+                    st.info("Este usuario aún no tiene cursos con porcentaje registrado.")
+
+                todos_resp = supabase.table("estado_cursos").select("id_usuario, porcentaje, estado").execute()
+                todos = todos_resp.data
+                registros_validos = [r for r in todos if r["estado"] in ["realizado", "aprobado", "reprobado"]]
+                df_promedios = pd.DataFrame(registros_validos)
+                df_promedios = df_promedios.groupby("id_usuario")["porcentaje"].mean().reset_index()
+                df_promedios = df_promedios.sort_values(by="porcentaje", ascending=False).reset_index(drop=True)
+
+                medallas = ["🥇 Oro", "🥈 Plata", "🥉 Bronce"]
+                df_promedios["medalla"] = ""
+                for i in range(min(3, len(df_promedios))):
+                    df_promedios.at[i, "medalla"] = medallas[i]
+
+                promedio_general = df_promedios["porcentaje"].mean()
+                st.metric("📈 Promedio general de todos los usuarios", f"{promedio_general:.2f}%")
+
+                posicion_usuario = df_promedios[df_promedios["id_usuario"] == id_usuario].index
+                if not posicion_usuario.empty:
+                    posicion = posicion_usuario[0] + 1
+                    medalla = df_promedios.loc[posicion_usuario[0], "medalla"]
+                    st.success(f"🏅 Tu posición en el ranking: #{posicion}")
+                    if medalla:
+                        st.info(f"🎖️ ¡Has ganado medalla: {medalla}!")
+                else:
+                    st.info("Este usuario no tiene cursos registrados para el ranking.")
 
                 df["fecha_vencimiento"] = pd.to_datetime([
                     v if isinstance(v, (datetime, date)) else pd.NaT for v in vencimientos
@@ -108,7 +141,6 @@ def mostrar():
 
                 st.dataframe(df)
 
-                # 🔍 Cursos Reprobados
                 st.subheader("📉 Cursos Reprobados")
                 df_reprobados = df[df["estado"] == "reprobado"]
                 if not df_reprobados.empty:
@@ -161,3 +193,4 @@ def mostrar():
                 st.info("No se encontraron cursos registrados para este usuario.")
         else:
             st.warning("Ficha no encontrada. Verifique el número ingresado.")
+
